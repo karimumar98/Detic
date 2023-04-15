@@ -37,6 +37,7 @@ class CustomRCNN(GeneralizedRCNN):
         cap_batch_ratio = 4,
         with_caption = False,
         dynamic_classifier = False,
+        image_base_name = None,
         **kwargs):
         """
         """
@@ -49,15 +50,20 @@ class CustomRCNN(GeneralizedRCNN):
         self.cap_batch_ratio = cap_batch_ratio
         self.dynamic_classifier = dynamic_classifier
         self.return_proposal = False
+        
+        self.image_base_name = image_base_name
         if self.dynamic_classifier:
             self.freq_weight = kwargs.pop('freq_weight')
             self.num_classes = kwargs.pop('num_classes')
             self.num_sample_cats = kwargs.pop('num_sample_cats')
         super().__init__(**kwargs)
+        
+        print("BB output features: ", self.backbone.output_shape())
         assert self.proposal_generator is not None
         if self.with_caption:
             assert not self.dynamic_classifier
-            self.text_encoder = build_text_encoder(pretrain=True)
+            
+            self.text_encoder = build_text_encoder(pretrain=True, clip_base_name = self.image_base_name)
             for v in self.text_encoder.parameters():
                 v.requires_grad = False
 
@@ -74,6 +80,8 @@ class CustomRCNN(GeneralizedRCNN):
             'dynamic_classifier': cfg.MODEL.DYNAMIC_CLASSIFIER,
             'roi_head_name': cfg.MODEL.ROI_HEADS.NAME,
             'cap_batch_ratio': cfg.MODEL.CAP_BATCH_RATIO,
+            ## ADDED TO LOAD THE CORRECT CLIP TEXT ENCODER
+            'image_base_name': cfg.MODEL.TIMM.BASE_NAME,
         })
         if ret['dynamic_classifier']:
             ret['freq_weight'] = load_class_freq(
@@ -135,7 +143,8 @@ class CustomRCNN(GeneralizedRCNN):
             features = {k: v.float() for k, v in features.items()}
         else:
             features = self.backbone(images.tensor)
-
+            
+        #print(features["layer4"].shape)
         cls_features, cls_inds, caption_features = None, None, None
 
         if self.with_caption and 'caption' in ann_type:

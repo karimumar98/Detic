@@ -1,0 +1,15 @@
+_BASE_: "clip_base.yaml"
+
+
+MODEL:
+  TIMM:
+    BASE_NAME: models/convnext_base/laion400m_s13b_b51k
+
+DATALOADER:
+  DATASET_BS: [2, 8]
+
+SOLVER:
+  MAX_ITER: 90000
+  CHECKPOINT_PERIOD: 2000
+
+OUTPUT_DIR: "./output/convnext_base_laion400m_s13b_b51k"

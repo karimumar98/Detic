@@ -49,7 +49,7 @@ from detic.custom_solver import build_custom_optimizer
 from detic.evaluation.oideval import OIDEvaluator
 from detic.evaluation.custom_coco_eval import CustomCOCOEvaluator
 from detic.modeling.utils import reset_cls_test
-
+import wandb
 
 logger = logging.getLogger("detectron2")
 
@@ -139,13 +139,13 @@ def do_train(cfg, model, resume=False):
 
     if cfg.FP16:
         scaler = GradScaler()
-
+    loss_to_log = 0.0
     logger.info("Starting training from iteration {}".format(start_iter))
     with EventStorage(start_iter) as storage:
         step_timer = Timer()
         data_timer = Timer()
         start_time = time.perf_counter()
-        for data, iteration in zip(data_loader, range(start_iter, max_iter)):
+        for data, iteration in zip(data_loader, range(start_iter, max_iter)):            
             data_time = data_timer.seconds()
             storage.put_scalars(data_time=data_time)
             step_timer.reset()
@@ -163,7 +163,7 @@ def do_train(cfg, model, resume=False):
             if comm.is_main_process():
                 storage.put_scalars(
                     total_loss=losses_reduced, **loss_dict_reduced)
-
+            loss_to_log += losses_reduced
             optimizer.zero_grad()
             if cfg.FP16:
                 scaler.scale(losses).backward()
@@ -191,14 +191,18 @@ def do_train(cfg, model, resume=False):
                 (iteration % 20 == 0 or iteration == max_iter):
                 for writer in writers:
                     writer.write()
+                wandb.log({"losses_reduced": loss_to_log / 20})
+                loss_to_log = 0
             periodic_checkpointer.step(iteration)
 
         total_time = time.perf_counter() - start_time
         logger.info(
             "Total training time: {}".format(
                 str(datetime.timedelta(seconds=int(total_time)))))
+        wandb.finish()
 
 def setup(args):
+
     """
     Create configs and perform basic setups.
     """
@@ -236,7 +240,12 @@ def main(args):
             model, device_ids=[comm.get_local_rank()], broadcast_buffers=False,
             find_unused_parameters=cfg.FIND_UNUSED_PARAM
         )
-
+    # start a new wandb run to track this script
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="Detic training",
+        notes="model name " + str(os.environ.get("RUN_NAME"))
+    )
     do_train(cfg, model, resume=args.resume)
     return do_test(cfg, model)
 

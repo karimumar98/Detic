@@ -72,28 +72,41 @@ class CLIPTEXT(nn.Module):
                  vocab_size=49408,
                  transformer_width=512,
                  transformer_heads=8,
-                 transformer_layers=12
+                 transformer_layers=12,
+                 text_cfg = None
                  ):
         super().__init__()
         
         self._tokenizer = _Tokenizer()
         self.context_length = context_length
 
-        self.transformer = Transformer(
-            width=transformer_width,
-            layers=transformer_layers,
-            heads=transformer_heads,
-            attn_mask=self.build_attention_mask()
-        )
 
-        self.vocab_size = vocab_size
-        self.token_embedding = nn.Embedding(vocab_size, transformer_width)
-        self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
-        self.ln_final = LayerNorm(transformer_width)
+        ## Modified to use the open clip implmentation
+        if text_cfg != None:
+            import open_clip
+            text = open_clip.model._build_text_tower(embed_dim, text_cfg)
+            self.transformer = text.transformer
+            self.vocab_size = text.vocab_size
+            self.token_embedding = text.token_embedding
+            self.positional_embedding = text.positional_embedding
+            self.ln_final = text.ln_final
+            self.text_projection = text.text_projection
 
-        self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
+        else:
+            ## Else, just continue with original code
+            self.transformer = Transformer(
+                width=transformer_width,
+                layers=transformer_layers,
+                heads=transformer_heads,
+                attn_mask=self.build_attention_mask())
+            
+            self.vocab_size = vocab_size
+            self.token_embedding = nn.Embedding(vocab_size, transformer_width)
+            self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
+            self.ln_final = LayerNorm(transformer_width)
+
+            self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
         # self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
-
         self.initialize_parameters()
 
     def initialize_parameters(self):
@@ -171,19 +184,42 @@ class CLIPTEXT(nn.Module):
         return features
 
 
-def build_text_encoder(pretrain=True):
-    text_encoder = CLIPTEXT()
-    if pretrain:
-        import clip
-        pretrained_model, _ = clip.load("ViT-B/32", device='cpu')
+def build_text_encoder(pretrain=True, clip_base_name=None):
+    
+    if clip_base_name == None:
+        ## Default
+        text_encoder = CLIPTEXT()
+        if pretrain:
+            import clip
+            pretrained_model, _ = clip.load("ViT-B/32", device='cpu')
+            state_dict = pretrained_model.state_dict()
+            to_delete_keys = ["logit_scale", "input_resolution",  "context_length", "vocab_size"] + [k for k in state_dict.keys() if k.startswith('visual.')]
+            for k in to_delete_keys:
+                if k in state_dict:
+                    del state_dict[k]
+            print('Loading pretrained CLIP')
+            text_encoder.load_state_dict(state_dict)
+        # import pdb; pdb.set_trace()
+        return text_encoder
+    else:
+        ## We have to modify the Text encoder to be an OPENCLIP backbone
+        print("LOADING OPENCLIP TEXT ENCODER: ", clip_base_name)
+        import open_clip
+        model_name = clip_base_name.split("/")[1]
+        pretrain_dataset = clip_base_name.split("/")[2]
+        
+        pretrained_model, _ = open_clip.create_model_from_pretrained(model_name = model_name, pretrained = pretrain_dataset, cache_dir = "/cluster/project/zhang/umarka/.cache")
+        cfg = open_clip.get_model_config(model_name=model_name)
+        text_cfg = cfg['text_cfg']
+        embed_dim = cfg["embed_dim"]
+        text_encoder = CLIPTEXT(embed_dim = embed_dim, text_cfg = text_cfg)
+        
         state_dict = pretrained_model.state_dict()
-        to_delete_keys = ["logit_scale", "input_resolution", \
-        "context_length", "vocab_size"] + \
-            [k for k in state_dict.keys() if k.startswith('visual.')]
+        to_delete_keys = ["logit_scale", "input_resolution",  "context_length", "vocab_size"] + [k for k in state_dict.keys() if k.startswith('visual.')]
         for k in to_delete_keys:
             if k in state_dict:
                 del state_dict[k]
         print('Loading pretrained CLIP')
         text_encoder.load_state_dict(state_dict)
-    # import pdb; pdb.set_trace()
-    return text_encoder
+        # import pdb; pdb.set_trace()
+        return text_encoder

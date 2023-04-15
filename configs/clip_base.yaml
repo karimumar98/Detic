@@ -1,0 +1,38 @@
+_BASE_: "Detic_OVCOCO_CLIP_R50_1x_max-size_caption.yaml"
+
+
+MODEL:
+#  WEIGHTS: "models/BoxSup-C2_Lbase_CLIP_R5021k_640b64_4x.pth"
+  TIMM:
+#    BASE_NAME: models/convnext_xxlarge/laion2b_s34b_b82k_augreg
+    BASE_NAME: models/convnext_base/laion400m_s13b_b51k
+#     BASE_NAME: convnext_base
+    OUT_LEVELS: [4]
+#    OUT_LEVELS: [4]
+  BACKBONE:
+    NAME: build_timm_backbone
+  #   NAME: build_p35_timm_fpn_backbone
+
+  # FPN:
+  #   IN_FEATURES: ["layer2", "layer3", "layer4"]
+  RPN:
+  #   IN_FEATURES: ["p3", "p4", "p5"]
+    IN_FEATURES: [layer4]
+  ROI_HEADS:
+  #   IN_FEATURES: ["p3", "p4", "p5"]
+    IN_FEATURES: [layer4]
+  #   NAME: DeticCascadeROIHeads
+
+
+
+
+
+DATALOADER:
+  DATASET_BS: [2, 8]
+
+SOLVER:
+  MAX_ITER: 90000
+  CHECKPOINT_PERIOD: 5000
+
+OUTPUT_DIR: "./output/convnext_base_laion400m_s13b_b51k"
+#OUTPUT_DIR: "./output/convnext_xxlarge_laion2b_s34b_b82k_augreg"

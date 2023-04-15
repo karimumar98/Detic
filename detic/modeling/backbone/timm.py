@@ -131,6 +131,14 @@ class TIMM(Backbone):
             self.base = create_model(
                 base_name, features_only=True, 
                 out_indices=out_indices, pretrained=pretrained)
+        elif "/" in base_name:
+            
+            drop_path_rate =  0.3
+            name = base_name.split("/")[1]
+            print("laoding karim model: ", name, " from checkpoint: ", base_name)
+            self.base = create_model(name, features_only=True, out_indices=out_indices, drop_path_rate=drop_path_rate)
+            self.base.load_state_dict(torch.load(f"{base_name}.pth"))
+
         elif 'convnext' in base_name:
             drop_path_rate = 0.2 \
                 if ('tiny' in base_name or 'small' in base_name) else 0.3
@@ -140,14 +148,28 @@ class TIMM(Backbone):
                 drop_path_rate=drop_path_rate)
         else:
             assert 0, base_name
+
+        ## Hacked solution to reduce the number of channels in the last layer
+        self.conv_1x1 = nn.Conv2d(self.base.feature_info[-1]['num_chs'], 1024, 1) 
+
         feature_info = [dict(num_chs=f['num_chs'], reduction=f['reduction']) \
             for i, f in enumerate(self.base.feature_info)] 
         self._out_features = ['layer{}'.format(x) for x in out_levels]
         self._out_feature_channels = {
             'layer{}'.format(l): feature_info[l - 1]['num_chs'] for l in out_levels}
+        # self._out_feature_channels = {
+        #     'layer{}'.format(l): 1024 for l in out_levels}
+        
         self._out_feature_strides = {
             'layer{}'.format(l): feature_info[l - 1]['reduction'] for l in out_levels}
         self._size_divisibility = max(self._out_feature_strides.values())
+        
+        print('feature_info', feature_info)
+        print("_out_features", self._out_features)
+        print("_out_feature_channels", self._out_feature_channels)
+        
+        
+        print("output shape", self.output_shape())        
         if 'resnet' in base_name:
             self.freeze(freeze_at)
         if norm == 'FrozenBN':
@@ -164,7 +186,9 @@ class TIMM(Backbone):
             self.base.layer1 = freeze_module(self.base.layer1)
 
     def forward(self, x):
+        ##TODO: Improve lol
         features = self.base(x)
+        # ret = {k: self.conv_1x1(v) for k, v in zip(self._out_features, features)}
         ret = {k: v for k, v in zip(self._out_features, features)}
         return ret
     
@@ -218,4 +242,26 @@ def build_p35_timm_fpn_backbone(cfg, input_shape):
         top_block=None,
         fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
     )
+    print("backbone os", backbone.output_shape())        
+
+    return backbone
+
+@BACKBONE_REGISTRY.register()
+def build_custom_timm_fpn_backbone(cfg, input_shape):
+    """
+    """
+    bottom_up = build_timm_backbone(cfg, input_shape)
+    
+    in_features = cfg.MODEL.FPN.IN_FEATURES
+    out_channels = cfg.MODEL.FPN.OUT_CHANNELS
+    backbone = FPN(
+        bottom_up=bottom_up,
+        in_features=in_features,
+        out_channels=out_channels,
+        norm=cfg.MODEL.FPN.NORM,
+        top_block=None,
+        fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
+    )
+    print("backbone os", backbone.output_shape())        
+
     return backbone
