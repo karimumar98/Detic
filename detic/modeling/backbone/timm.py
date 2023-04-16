@@ -149,7 +149,7 @@ class TIMM(Backbone):
         else:
             assert 0, base_name
 
-        ## Hacked solution to reduce the number of channels in the last layer
+        ## Hacked solution to reduce the number of channels in the last layer to 1024 to avoid modifying the succesive ROI and RPN heads
         self.conv_1x1 = nn.Conv2d(self.base.feature_info[-1]['num_chs'], 1024, 1) 
 
         feature_info = [dict(num_chs=f['num_chs'], reduction=f['reduction']) \
@@ -157,8 +157,9 @@ class TIMM(Backbone):
         self._out_features = ['layer{}'.format(x) for x in out_levels]
         self._out_feature_channels = {
             'layer{}'.format(l): feature_info[l - 1]['num_chs'] for l in out_levels}
-        # self._out_feature_channels = {
-        #     'layer{}'.format(l): 1024 for l in out_levels}
+
+        self._out_feature_channels = {
+            'layer{}'.format(l): 1024 for l in out_levels}
         
         self._out_feature_strides = {
             'layer{}'.format(l): feature_info[l - 1]['reduction'] for l in out_levels}
@@ -188,8 +189,8 @@ class TIMM(Backbone):
     def forward(self, x):
         ##TODO: Improve lol
         features = self.base(x)
-        # ret = {k: self.conv_1x1(v) for k, v in zip(self._out_features, features)}
-        ret = {k: v for k, v in zip(self._out_features, features)}
+        ret = {k: self.conv_1x1(v) for k, v in zip(self._out_features, features)}
+        #ret = {k: v for k, v in zip(self._out_features, features)}
         return ret
     
     @property

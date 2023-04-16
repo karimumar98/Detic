@@ -66,6 +66,11 @@ def add_detic_config(cfg):
     _C.MODEL.TIMM.FREEZE_AT = 0
     _C.MODEL.TIMM.PRETRAINED = False
     _C.MODEL.DATASET_LOSS_WEIGHT = []
+
+    ## For using openclip pretrained backbones:
+    # _C.MODEL.TIMM.TIMM_BASE: ""
+    # _C.MODEL.TIMM.OPEN_CLIP_BASE: ""
+    # _C.MODEL.TIMM.PRETRAIN_DATASET: ""
     
     # Multi-dataset dataloader
     _C.DATALOADER.DATASET_RATIO = [1, 1] # sample ratio

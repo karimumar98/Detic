@@ -170,6 +170,8 @@ class CustomRCNN(GeneralizedRCNN):
             proposals, detector_losses = self.roi_heads(
                 images, features, proposals, gt_instances)
         else:
+            # print("images", images[0].shape)
+            # print("features", features["layer4"][0].shape)
             proposals, detector_losses = self.roi_heads(
                 images, features, proposals, gt_instances,
                 ann_type=ann_type, classifier_info=classifier_info)

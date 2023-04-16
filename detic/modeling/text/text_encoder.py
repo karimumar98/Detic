@@ -80,7 +80,8 @@ class CLIPTEXT(nn.Module):
         self._tokenizer = _Tokenizer()
         self.context_length = context_length
 
-
+        ## Quick hack to get output dimensions to match that of the Zero Shot classifier
+        self.fc1 = nn.Linear(embed_dim, 512)
         ## Modified to use the open clip implmentation
         if text_cfg != None:
             import open_clip
@@ -106,6 +107,8 @@ class CLIPTEXT(nn.Module):
             self.ln_final = LayerNorm(transformer_width)
 
             self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
+
+
         # self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
         self.initialize_parameters()
 
@@ -173,6 +176,7 @@ class CLIPTEXT(nn.Module):
         x = self.ln_final(x).type(self.dtype)
         # take features from the eot embedding (eot_token is the highest number in each sequence)
         x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
+        x = self.fc1(x)
         return x
 
     def forward(self, captions):
@@ -208,18 +212,25 @@ def build_text_encoder(pretrain=True, clip_base_name=None):
         model_name = clip_base_name.split("/")[1]
         pretrain_dataset = clip_base_name.split("/")[2]
         
+        ##Quick hack:
+        if model_name == "convnext_large":
+            model_name = "convnext_large_d"
+
+
         pretrained_model, _ = open_clip.create_model_from_pretrained(model_name = model_name, pretrained = pretrain_dataset, cache_dir = "/cluster/project/zhang/umarka/.cache")
         cfg = open_clip.get_model_config(model_name=model_name)
         text_cfg = cfg['text_cfg']
         embed_dim = cfg["embed_dim"]
         text_encoder = CLIPTEXT(embed_dim = embed_dim, text_cfg = text_cfg)
         
+
+
         state_dict = pretrained_model.state_dict()
         to_delete_keys = ["logit_scale", "input_resolution",  "context_length", "vocab_size"] + [k for k in state_dict.keys() if k.startswith('visual.')]
         for k in to_delete_keys:
             if k in state_dict:
                 del state_dict[k]
         print('Loading pretrained CLIP')
-        text_encoder.load_state_dict(state_dict)
+        text_encoder.load_state_dict(state_dict, strict=False)
         # import pdb; pdb.set_trace()
         return text_encoder

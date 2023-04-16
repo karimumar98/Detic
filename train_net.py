@@ -145,7 +145,7 @@ def do_train(cfg, model, resume=False):
         step_timer = Timer()
         data_timer = Timer()
         start_time = time.perf_counter()
-        for data, iteration in zip(data_loader, range(start_iter, max_iter)):            
+        for data, iteration in zip(data_loader, range(start_iter, max_iter)):    
             data_time = data_timer.seconds()
             storage.put_scalars(data_time=data_time)
             step_timer.reset()
@@ -244,7 +244,8 @@ def main(args):
     wandb.init(
         # set the wandb project where this run will be logged
         project="Detic training",
-        notes="model name " + str(os.environ.get("RUN_NAME"))
+        notes="model name " + str(os.environ.get("RUN_NAME")),
+        name="model name " + str(os.environ.get("RUN_NAME")),
     )
     do_train(cfg, model, resume=args.resume)
     return do_test(cfg, model)

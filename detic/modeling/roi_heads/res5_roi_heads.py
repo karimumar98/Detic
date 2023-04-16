@@ -78,6 +78,9 @@ class CustomRes5ROIHeads(Res5ROIHeads):
         box_features = self._shared_roi_transform(
             [features[f] for f in self.in_features], proposal_boxes
         )
+
+        # print("classifier_info: ", classifier_info)
+        # print("box_features: ", box_features)
         predictions = self.box_predictor(
             box_features.mean(dim=[2, 3]),
             classifier_info=classifier_info)
