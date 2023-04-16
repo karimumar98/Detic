@@ -12,11 +12,11 @@ pretrain = "laion400m_s13b_b51k"
 configs = [
 #    ('convnext_base', 'laion400m_s13b_b51k'), 
 #    ('convnext_base_w', 'laion2b_s13b_b82k'), 
-#    ('convnext_base_w', 'laion2b_s13b_b82k_augreg'), 
+    ('convnext_base_w', 'laion2b_s13b_b82k_augreg'), 
 #    ('convnext_base_w', 'laion_aesthetic_s13b_b82k'), 
 #    ('convnext_base_w_320', 'laion_aesthetic_s13b_b82k'), 
 #    ('convnext_base_w_320', 'laion_aesthetic_s13b_b82k_augreg'), 
-    ('convnext_large_d', 'laion2b_s26b_b102k_augreg'), 
+#    ('convnext_large_d', 'laion2b_s26b_b102k_augreg'), 
 #    ('convnext_large_d_320', 'laion2b_s29b_b131k_ft'), 
 #    ('convnext_large_d_320', 'laion2b_s29b_b131k_ft_soup'), 
     # ('convnext_xxlarge', 'laion2b_s34b_b82k_augreg'), 
@@ -90,7 +90,9 @@ for name, pretrain in configs:
     state_dict = model.visual.trunk.state_dict()
     state_dict = dict(( name.split(".")[0] + "_" + ".".join(name.split(".")[1:]) , val) for name, val in state_dict.items())
 
-    t_model = timm.create_model("convnext_large", features_only=True, out_indices = [3])
+    timm_model_name = open_clip.get_model_config(name)["vision_cfg"]["timm_model_name"]
+
+    t_model = timm.create_model(timm_model_name, features_only=True, out_indices = [3])
 #    t_model = timm.create_model(name, features_only=True, out_indices = [3])
     t_model.load_state_dict(state_dict, strict=False)
     Path(f"models/{name}").mkdir(parents=True, exist_ok=True)

@@ -12,7 +12,7 @@ contourpy==1.0.7
 cycler==0.11.0
 Cython==0.29.34
 dataclasses==0.6
-detectron2 @ git+https://github.com/karimumar98/detectron
+detectron2 @ git+https://github.com/facebookresearch/detectron2
 docker-pycreds==0.4.0
 fasttext==0.9.2
 filelock==3.11.0

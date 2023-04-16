@@ -132,11 +132,15 @@ class TIMM(Backbone):
                 base_name, features_only=True, 
                 out_indices=out_indices, pretrained=pretrained)
         elif "/" in base_name:
+            import open_clip
             
             drop_path_rate =  0.3
             name = base_name.split("/")[1]
             print("laoding karim model: ", name, " from checkpoint: ", base_name)
-            self.base = create_model(name, features_only=True, out_indices=out_indices, drop_path_rate=drop_path_rate)
+
+            timm_model_name = open_clip.get_model_config(name)["vision_cfg"]["timm_model_name"]
+
+            self.base = create_model(timm_model_name, features_only=True, out_indices=out_indices, drop_path_rate=drop_path_rate)
             self.base.load_state_dict(torch.load(f"{base_name}.pth"))
 
         elif 'convnext' in base_name:

@@ -19,6 +19,6 @@ nvidia-smi
 nvidia-smi -L
 
 module load gcc/8.2.0 python_gpu/3.8.5 eth_proxy cuda/11.7.0 eth_proxy
-source /cluster/project/zhang/umarka/clip_detector/Detic/.t113/bin/activate
+source /cluster/project/zhang/umarka/clip_detector/prod/.venv/bin/activate
 
 python train_net.py --num-gpus $gpu_count --config-file configs/convnet_large_2b.yaml --resume
