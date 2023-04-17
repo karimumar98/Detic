@@ -191,7 +191,7 @@ def do_train(cfg, model, resume=False):
                 (iteration % 20 == 0 or iteration == max_iter):
                 for writer in writers:
                     writer.write()
-                wandb.log({"losses_reduced": loss_to_log / 20})
+                #wandb.log({"losses_reduced": loss_to_log / 20})
                 loss_to_log = 0
             periodic_checkpointer.step(iteration)
 

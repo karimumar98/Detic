@@ -122,6 +122,7 @@ class CustomRCNN(GeneralizedRCNN):
         if not self.training:
             return self.inference(batched_inputs)
 
+        ## Process images and put them on the GPU
         images = self.preprocess_image(batched_inputs)
 
         ann_type = 'box'
@@ -137,6 +138,7 @@ class CustomRCNN(GeneralizedRCNN):
                 for t in gt_instances:
                     t.gt_classes *= 0
         
+        ## Get feature map from the backbone
         if self.fp16: # TODO (zhouxy): improve
             with autocast():
                 features = self.backbone(images.tensor.half())
@@ -144,7 +146,6 @@ class CustomRCNN(GeneralizedRCNN):
         else:
             features = self.backbone(images.tensor)
             
-        #print(features["layer4"].shape)
         cls_features, cls_inds, caption_features = None, None, None
 
         if self.with_caption and 'caption' in ann_type:
@@ -159,8 +160,7 @@ class CustomRCNN(GeneralizedRCNN):
         if self.dynamic_classifier and ann_type != 'caption':
             cls_inds = self._sample_cls_inds(gt_instances, ann_type) # inds, inv_inds
             ind_with_bg = cls_inds[0].tolist() + [-1]
-            cls_features = self.roi_heads.box_predictor[
-                0].cls_score.zs_weight[:, ind_with_bg].permute(1, 0).contiguous()
+            cls_features = self.roi_heads.box_predictor[0].cls_score.zs_weight[:, ind_with_bg].permute(1, 0).contiguous()
 
         classifier_info = cls_features, cls_inds, caption_features
         proposals, proposal_losses = self.proposal_generator(
@@ -170,8 +170,7 @@ class CustomRCNN(GeneralizedRCNN):
             proposals, detector_losses = self.roi_heads(
                 images, features, proposals, gt_instances)
         else:
-            # print("images", images[0].shape)
-            # print("features", features["layer4"][0].shape)
+            # get regions of interest
             proposals, detector_losses = self.roi_heads(
                 images, features, proposals, gt_instances,
                 ann_type=ann_type, classifier_info=classifier_info)
@@ -184,9 +183,13 @@ class CustomRCNN(GeneralizedRCNN):
         losses = {}
         losses.update(detector_losses)
         if self.with_image_labels:
+
+            ## Explained in paper, loss depends on training sample.
             if ann_type in ['box', 'prop', 'proptag']:
+                ## Simple box annotation
                 losses.update(proposal_losses)
             else: # ignore proposal loss for non-bbox data
+                ## 
                 losses.update({k: v * 0 for k, v in proposal_losses.items()})
         else:
             losses.update(proposal_losses)
