@@ -32,6 +32,7 @@ class ZeroShotClassifier(nn.Module):
 
         self.linear = nn.Linear(input_size, zs_weight_dim)
         
+        print("zs_weight_dim", zs_weight_dim)
         if zs_weight_path == 'rand':
             zs_weight = torch.randn((zs_weight_dim, num_classes))
             nn.init.normal_(zs_weight, std=0.01)

@@ -8,10 +8,15 @@ MODEL:
     # OPEN_CLIP_BASE: convnext_large_d
     # PRETRAIN_DATASET: laion2b_s26b_b102k_augreg
 
+  ROI_BOX_HEAD:
+    ZEROSHOT_WEIGHT_PATH: 'rand'
+    ZEROSHOT_WEIGHT_DIM: 768
+
 DATALOADER:
   DATASET_BS: [2, 8]
+  
 SOLVER:
   MAX_ITER: 90000
   CHECKPOINT_PERIOD: 2000
   
-OUTPUT_DIR: "./output/convnext_large_d_laion2b_s26b_b102k_augreg"
+OUTPUT_DIR: "./output/convnext_large_d_laion2b_s26b_b102k_augreg_big_zs"

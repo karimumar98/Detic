@@ -176,7 +176,7 @@ class CLIPTEXT(nn.Module):
         x = self.ln_final(x).type(self.dtype)
         # take features from the eot embedding (eot_token is the highest number in each sequence)
         x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
-        x = self.fc1(x)
+        #x = self.fc1(x)
         return x
 
     def forward(self, captions):

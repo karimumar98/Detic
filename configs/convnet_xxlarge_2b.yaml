@@ -6,7 +6,7 @@ MODEL:
     BASE_NAME: models/convnext_xxlarge/laion2b_s34b_b82k_augreg
 
 DATALOADER:
-  DATASET_BS: [1, 1]
+  DATASET_BS: [2, 8]
 SOLVER:
   MAX_ITER: 90000
   CHECKPOINT_PERIOD: 2000
