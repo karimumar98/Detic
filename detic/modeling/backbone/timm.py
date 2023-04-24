@@ -155,6 +155,7 @@ class TIMM(Backbone):
 
         ## Hacked solution to reduce the number of channels in the last layer to 1024 to avoid modifying the succesive ROI and RPN heads
         self.conv_1x1 = nn.Conv2d(self.base.feature_info[-1]['num_chs'], 1024, 1) 
+        torch.nn.init.xavier_uniform(self.conv_1x1.weight)
 
         feature_info = [dict(num_chs=f['num_chs'], reduction=f['reduction']) \
             for i, f in enumerate(self.base.feature_info)] 

@@ -1,0 +1,33 @@
+_BASE_: "clip_base.yaml"
+
+
+MODEL:
+  TIMM:
+    BASE_NAME: models/convnext_large/laion2b_s26b_b102k_augreg
+    # TIMM_BASE: convnext_large
+    # OPEN_CLIP_BASE: convnext_large_d
+    # PRETRAIN_DATASET: laion2b_s26b_b102k_augreg
+
+## Attempt: Using standard text encoder provided by clip:
+
+## Attempt using the same Clip Text encoder as the backbone and the precomupted OPEN CLIP embeddings as classifier
+  TEXT_ENCODER:
+    MODEL_NAME: "convnext_large"
+    PRETRAIN_DATASET: "laion2b_s26b_b102k_augreg"
+    CUSTOM_TEXT_EMBED: True
+    
+  ROI_BOX_HEAD:
+    ZEROSHOT_WEIGHT_PATH: 'datasets/metadata/coco_openclip_a+cname.npy'
+    ZEROSHOT_WEIGHT_DIM: 768
+
+DATALOADER:
+  DATASET_BS: [2, 8]
+  
+SOLVER:
+  MAX_ITER: 90000
+  CHECKPOINT_PERIOD: 5000
+  
+TEST:
+  EVAL_PERIOD: 5000
+  
+OUTPUT_DIR: "./output/convnext_large_d_laion2b_OC_ZSCsqueue"

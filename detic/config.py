@@ -65,6 +65,12 @@ def add_detic_config(cfg):
     _C.MODEL.TIMM.NORM = 'FrozenBN'
     _C.MODEL.TIMM.FREEZE_AT = 0
     _C.MODEL.TIMM.PRETRAINED = False
+
+    _C.MODEL.TEXT_ENCODER = CN()
+    _C.MODEL.TEXT_ENCODER.CUSTOM_TEXT_EMBED = False
+    _C.MODEL.TEXT_ENCODER.MODEL_NAME = "convnext_large"
+    _C.MODEL.TEXT_ENCODER.PRETRAIN_DATASET = "laion2b_s26b_b102k_augreg"
+
     _C.MODEL.DATASET_LOSS_WEIGHT = []
 
     ## For using openclip pretrained backbones:

@@ -6,8 +6,8 @@
 #SBATCH --gpus=4
 #SBATCH --mem-per-cpu=32g 
 #SBATCH --gres=gpumem:16g
-#SBATCH --time=01:30:00
-#SBATCH -o "slurm-output/slurm-%j.out"
+#SBATCH --time=00:30:00
+#SBATCH -o "slurm-output/large_clip_35k.out"
 
 #export RUN_NAME="Detic_convnet_base_laion_400m_run_1"
 
@@ -24,8 +24,11 @@ module load gcc/8.2.0 python_gpu/3.8.5 eth_proxy cuda/11.7.0 eth_proxy
 source /cluster/project/zhang/umarka/clip_detector/prod/.venv/bin/activate
 
 
-python train_net.py --num-gpus $gpu_count --config-file configs/Detic_OVCOCO_CLIP_R50_1x_max-size_caption.yaml --eval-only MODEL.WEIGHTS /models/Detic_OVCOCO_CLIP_R50_1x_max-size_caption.pth
+#python train_net.py --num-gpus $gpu_count --config-file configs/convnet_large_2b.yaml --eval-only MODEL.WEIGHTS /cluster/project/zhang/umarka/clip_detector/dev/Detic/output/convnext_large_d_laion2b_s26b_b102k_augreg_big_zs/model_0004999.pth
 
+python train_net.py --num-gpus $gpu_count --config-file configs/convnet_large_2b.yaml --eval-only MODEL.WEIGHTS output/convnext_large_d_laion2b_s26b_b102k_augreg_eval/model_0034999.pth
+
+#python train_net.py --num-gpus $gpu_count --config-file configs/convnet_large_2b.yaml --eval-only MODEL.WEIGHTS output/convnext_large_d_laion2b_s26b_b102k_augreg/model_final.pth
 : '
 python train_net.py --num-gpus 1 --config-file configs/convnet_base_400m.yaml --resume
 

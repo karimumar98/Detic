@@ -13,6 +13,8 @@ if __name__ == '__main__':
     parser.add_argument('--out_path', default='')
     parser.add_argument('--prompt', default='a')
     parser.add_argument('--model', default='clip')
+    parser.add_argument('--model_name', default='convnext_base')
+    parser.add_argument('--model_pretrain', default='laion400m_s13b_b51k')
     parser.add_argument('--clip_model', default="ViT-B/32")
     parser.add_argument('--fix_space', action='store_true')
     parser.add_argument('--use_underscore', action='store_true')
@@ -22,15 +24,18 @@ if __name__ == '__main__':
 
     print('Loading', args.ann)
     data = json.load(open(args.ann, 'r'))
+    ## Get all LVIS / Coco class names in order of their IDs
     cat_names = [x['name'] for x in \
         sorted(data['categories'], key=lambda x: x['id'])]
+
     if 'synonyms' in data['categories'][0]:
         if args.use_wn_name:
             synonyms = [
                 [xx.name() for xx in wordnet.synset(x['synset']).lemmas()] \
                     if x['synset'] != 'stop_sign.n.01' else ['stop_sign'] \
                     for x in sorted(data['categories'], key=lambda x: x['id'])]
-        else:
+        else
+            ## Do same for synonyms, LVIS has these
             synonyms = [x['synonyms'] for x in \
                 sorted(data['categories'], key=lambda x: x['id'])]
     else:
@@ -42,6 +47,7 @@ if __name__ == '__main__':
     print('cat_names', cat_names)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
+    ## Create Prompts
     if args.prompt == 'a':
         sentences = ['a ' + x for x in cat_names]
         sentences_synonyms = [['a ' + xx for xx in x] for x in synonyms]
@@ -59,9 +65,37 @@ if __name__ == '__main__':
 
     print('sentences_synonyms', len(sentences_synonyms), \
         sum(len(x) for x in sentences_synonyms))
-    if args.model == 'clip':
+
+    if args.model == 'open_clip':
+        import open_clip
+        import clip
+        print('Loading Open CLIP')
+        model, preprocess = open_clip.create_model_from_pretrained(args.model_name, pretrained = args.model_pretrain, device=device)
+        if args.avg_synonyms:
+            sentences = list(itertools.chain.from_iterable(sentences_synonyms))
+            print('flattened_sentences', len(sentences))
+        text = clip.tokenize(sentences).to(device)
+        with torch.no_grad():
+            if len(text) > 10000:
+                text_features = torch.cat([
+                    model.encode_text(text[:len(text) // 2]),
+                    model.encode_text(text[len(text) // 2:])],
+                    dim=0)
+            else:
+                text_features = model.encode_text(text)
+        print('text_features.shape', text_features.shape)
+        if args.avg_synonyms:
+            synonyms_per_cat = [len(x) for x in sentences_synonyms]
+            text_features = text_features.split(synonyms_per_cat, dim=0)
+            text_features = [x.mean(dim=0) for x in text_features]
+            text_features = torch.stack(text_features, dim=0)
+            print('after stack', text_features.shape)
+        text_features = text_features.cpu().numpy()
+    
+    elif args.model == 'clip':
         import clip
         print('Loading CLIP')
+        # Download a pretrained CLIP
         model, preprocess = clip.load(args.clip_model, device=device)
         if args.avg_synonyms:
             sentences = list(itertools.chain.from_iterable(sentences_synonyms))

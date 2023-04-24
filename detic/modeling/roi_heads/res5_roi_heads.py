@@ -58,8 +58,7 @@ class CustomRes5ROIHeads(Res5ROIHeads):
         ret['cfg'] = cfg
         return ret
 
-    def forward(self, images, features, proposals, targets=None,
-        ann_type='box', classifier_info=(None,None,None)):
+    def forward(self, images, features, proposals, targets=None, ann_type='box', classifier_info=(None,None,None)):
         '''
         enable debug and image labels
         classifier_info is shared across the batch
@@ -69,18 +68,25 @@ class CustomRes5ROIHeads(Res5ROIHeads):
         
         if self.training:
             if ann_type in ['box']:
+                '''Prepare some proposals to be used to train the ROI heads.
+                It performs box matching between `proposals` and `targets`, and assigns
+                training labels to the proposals.
+                It returns ``self.batch_size_per_image`` random samples from proposals and groundtruth
+                boxes, with a fraction of positives that is no larger than
+                ``self.positive_fraction``.
+                '''
                 proposals = self.label_and_sample_proposals(
                     proposals, targets)
             else:
                 proposals = self.get_top_proposals(proposals)
 
         proposal_boxes = [x.proposal_boxes for x in proposals]
+        ## For every Box, retrieve it's features
         box_features = self._shared_roi_transform(
             [features[f] for f in self.in_features], proposal_boxes
         )
 
-        # print("classifier_info: ", classifier_info)
-        # print("box_features: ", box_features)
+        ## 
         predictions = self.box_predictor(
             box_features.mean(dim=[2, 3]),
             classifier_info=classifier_info)

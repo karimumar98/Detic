@@ -195,11 +195,17 @@ python tools/get_lvis_cat_info.py --ann datasets/lvis/lvis_v1_train.json
 They are created by (taking LVIS as an example)
 ~~~
 python tools/dump_clip_features.py --ann datasets/lvis/lvis_v1_val.json --out_path metadata/lvis_v1_clip_a+cname.npy
+
+python tools/dump_clip_features.py --model open_clip --model_name convnext_large --model_pretrain laion2b_s26b_b102k_augreg --ann datasets/lvis/lvis_v1_val.json --out_path metadata/lvis_v1_clip_a+cname.npy
+
+python tools/dump_clip_features.py --model open_clip --model_name convnext_large_d --model_pretrain laion2b_s26b_b102k_augreg --ann datasets/coco/zero-shot/instances_val2017_all_2_oriorder.json --prompt none --out_path datasets/metadata/coco_openclip_a+cname.npy 
 ~~~
 Note we do not include the 21K class embeddings due to the large file size.
 To create it, run
 ~~~
 python tools/dump_clip_features.py --ann datasets/lvis/lvis_v1_val_lvis-21k.json --out_path datasets/metadata/lvis-21k_clip_a+cname.npy
+
+
 ~~~
 
 `imagenet_lvis_wnid.txt` is the list of matched classes between ImageNet-21K and LVIS.

@@ -438,10 +438,11 @@ class DeticFastRCNNOutputLayers(FastRCNNOutputLayers):
             cls_scores = self.cls_score(x, classifier=classifier_info[0])
             scores.append(cls_scores)
         else:
+            ## Use the Zero Shot classifier
             cls_scores = self.cls_score(x)
             scores.append(cls_scores)
-
         if classifier_info[2] is not None:
+            ## When No caption is provided
             cap_cls = classifier_info[2]
             if self.sync_caption_batch:
                 caption_scores = self.cls_score(x, classifier=cap_cls[:, :-1]) 

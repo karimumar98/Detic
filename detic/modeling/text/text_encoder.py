@@ -81,7 +81,7 @@ class CLIPTEXT(nn.Module):
         self.context_length = context_length
 
         ## Quick hack to get output dimensions to match that of the Zero Shot classifier
-        self.fc1 = nn.Linear(embed_dim, 512)
+        #self.fc1 = nn.Linear(embed_dim, 512)
         ## Modified to use the open clip implmentation
         if text_cfg != None:
             import open_clip
@@ -188,11 +188,12 @@ class CLIPTEXT(nn.Module):
         return features
 
 
-def build_text_encoder(pretrain=True, clip_base_name=None):
+def build_text_encoder(pretrain=True, use_custom_text_embed=False, model_name = "", pretrain_dataset = ""):
     
-    if clip_base_name == None:
-        ## Default
+    if not use_custom_text_embed:
+        ## Default, use the text embededer used in default code
         text_encoder = CLIPTEXT()
+        print("LOADING STANDARD CLIP TEXT ENCODER")
         if pretrain:
             import clip
             pretrained_model, _ = clip.load("ViT-B/32", device='cpu')
@@ -207,10 +208,8 @@ def build_text_encoder(pretrain=True, clip_base_name=None):
         return text_encoder
     else:
         ## We have to modify the Text encoder to be an OPENCLIP backbone
-        print("LOADING OPENCLIP TEXT ENCODER: ", clip_base_name)
         import open_clip
-        model_name = clip_base_name.split("/")[1]
-        pretrain_dataset = clip_base_name.split("/")[2]
+        print("LOADING OPENCLIP TEXT ENCODER: ", model_name)
         
         ##Quick hack:
         if model_name == "convnext_large":

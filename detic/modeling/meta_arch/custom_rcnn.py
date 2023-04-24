@@ -38,6 +38,10 @@ class CustomRCNN(GeneralizedRCNN):
         with_caption = False,
         dynamic_classifier = False,
         image_base_name = None,
+        roi_head_zs_weight_dimm = 512,
+        use_custom_text_embed = False,
+        text_encoder_name = "",
+        text_encoder_pretrain = "",
         **kwargs):
         """
         """
@@ -50,6 +54,10 @@ class CustomRCNN(GeneralizedRCNN):
         self.cap_batch_ratio = cap_batch_ratio
         self.dynamic_classifier = dynamic_classifier
         self.return_proposal = False
+        self.roi_head_zs_weight_dimm = roi_head_zs_weight_dimm
+        self.use_custom_text_embed = use_custom_text_embed
+        self.text_encoder_name = text_encoder_name
+        self.text_encoder_pretrain = text_encoder_pretrain
         
         self.image_base_name = image_base_name
         if self.dynamic_classifier:
@@ -63,7 +71,7 @@ class CustomRCNN(GeneralizedRCNN):
         if self.with_caption:
             assert not self.dynamic_classifier
             
-            self.text_encoder = build_text_encoder(pretrain=True, clip_base_name = self.image_base_name)
+            self.text_encoder = build_text_encoder(pretrain=True, use_custom_text_embed = self.use_custom_text_embed, model_name = self.text_encoder_name, pretrain_dataset = self.text_encoder_pretrain)
             for v in self.text_encoder.parameters():
                 v.requires_grad = False
 
@@ -79,9 +87,13 @@ class CustomRCNN(GeneralizedRCNN):
             'sync_caption_batch': cfg.MODEL.SYNC_CAPTION_BATCH,
             'dynamic_classifier': cfg.MODEL.DYNAMIC_CLASSIFIER,
             'roi_head_name': cfg.MODEL.ROI_HEADS.NAME,
+            'roi_head_zs_weight_dimm': cfg.MODEL.ROI_BOX_HEAD.ZEROSHOT_WEIGHT_DIM,
             'cap_batch_ratio': cfg.MODEL.CAP_BATCH_RATIO,
             ## ADDED TO LOAD THE CORRECT CLIP TEXT ENCODER
             'image_base_name': cfg.MODEL.TIMM.BASE_NAME,
+            'use_custom_text_embed': cfg.MODEL.TEXT_ENCODER.CUSTOM_TEXT_EMBED,
+            'text_encoder_name': cfg.MODEL.TEXT_ENCODER.MODEL_NAME,
+            'text_encoder_pretrain': cfg.MODEL.TEXT_ENCODER.PRETRAIN_DATASET,
         })
         if ret['dynamic_classifier']:
             ret['freq_weight'] = load_class_freq(
@@ -101,9 +113,13 @@ class CustomRCNN(GeneralizedRCNN):
         assert not self.training
         assert detected_instances is None
 
+        ## Normalize images and push to GPU
         images = self.preprocess_image(batched_inputs)
+        ## extract feature map
         features = self.backbone(images.tensor)
+        ## Get proposal Boxes
         proposals, _ = self.proposal_generator(images, features, None)
+        ## Refine Proposals
         results, _ = self.roi_heads(images, features, proposals)
         if do_postprocess:
             assert not torch.jit.is_scripting(), \
@@ -122,11 +138,14 @@ class CustomRCNN(GeneralizedRCNN):
         if not self.training:
             return self.inference(batched_inputs)
 
-        ## Process images and put them on the GPU
+        ## Normalize images and put them on the GPU
         images = self.preprocess_image(batched_inputs)
 
         ann_type = 'box'
+        ## All of the ground truth boxes for this image
         gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
+        ## For OVCOCO gt_instances is an array of empty isntances
+
         if self.with_image_labels:
             for inst, x in zip(gt_instances, batched_inputs):
                 inst._ann_type = x['ann_type']
@@ -137,6 +156,8 @@ class CustomRCNN(GeneralizedRCNN):
             if ann_type in ['prop', 'proptag']:
                 for t in gt_instances:
                     t.gt_classes *= 0
+
+            ## For OVCOCO ann_type = captiontag, gt_instances gets updated
         
         ## Get feature map from the backbone
         if self.fp16: # TODO (zhouxy): improve
@@ -149,6 +170,7 @@ class CustomRCNN(GeneralizedRCNN):
         cls_features, cls_inds, caption_features = None, None, None
 
         if self.with_caption and 'caption' in ann_type:
+            ## Take a random caption per image. encode this using the text_encoder.
             inds = [torch.randint(len(x['captions']), (1,))[0].item() \
                 for x in batched_inputs]
             caps = [x['captions'][ind] for ind, x in zip(inds, batched_inputs)]
@@ -162,15 +184,17 @@ class CustomRCNN(GeneralizedRCNN):
             ind_with_bg = cls_inds[0].tolist() + [-1]
             cls_features = self.roi_heads.box_predictor[0].cls_score.zs_weight[:, ind_with_bg].permute(1, 0).contiguous()
 
+        ## for OVCOCO: None, None,, CLIP Embedding of the text features
         classifier_info = cls_features, cls_inds, caption_features
-        proposals, proposal_losses = self.proposal_generator(
-            images, features, gt_instances)
+
+        ## Standard proposal generator, For most Detic stuff this is the standard faster RCNN RPN from detectron using the 'standardRPNHead' and the standard anchor generator
+        proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
 
         if self.roi_head_name in ['StandardROIHeads', 'CascadeROIHeads']:
             proposals, detector_losses = self.roi_heads(
                 images, features, proposals, gt_instances)
         else:
-            # get regions of interest
+            # OVCOCO ends up here using the C4 ROI Head.
             proposals, detector_losses = self.roi_heads(
                 images, features, proposals, gt_instances,
                 ann_type=ann_type, classifier_info=classifier_info)
@@ -213,7 +237,8 @@ class CustomRCNN(GeneralizedRCNN):
             (BS, 1), comm.get_rank(), dtype=torch.float32, 
             device=self.device)
         if not has_caption_feature:
-            caption_features = rank.new_zeros((BS, 512))
+            caption_features = rank.new_zeros((BS, self.roi_head_zs_weight_dimm))
+
         caption_features = torch.cat([caption_features, rank], dim=1)
         global_caption_features = comm.all_gather(caption_features)
         caption_features = torch.cat(
